@@ -32,9 +32,9 @@ type SignLog struct {
 type LinesLog struct {
     Id          bson.ObjectId   `bson:"_id"`        // Id
     UserId      string          `bson:"user_id"`    // 用户id
-    LineNum     string          `bson:"line_num"`   // 代码行数
+    LineNum     int          	`bson:"line_num"`   // 代码行数
     Time        string          `bson:"time"`       // 时间戳
-    SignId      string          `bson:"sign_id"`    // 对应的sign信息id
+    SignId      bson.ObjectId          `bson:"sign_id"`    // 对应的sign信息id
 }
 
 // Debug信息
@@ -43,7 +43,7 @@ type DebugLog struct {
     UserId      string          `bson:"user_id"`    // 用户id
     BeginTime   string          `bson:"b_time"`     // 开始时间
     EndTime     string          `bson:"e_time"`     // 结束时间
-    SignId      string          `bson:"sign_id"`    // 对应的sign信息id   
+    SignId      bson.ObjectId   `bson:"sign_id"`    // 对应的sign信息id   
 }
 
 // 运行情况信息
@@ -52,7 +52,7 @@ type RunLog struct {
     UserId      string          `bson:"user_id"`    // 用户id
     BeginTime   string          `bson:"b_time"`     // 开始时间
     EndTime     string          `bson:"e_time"`     // 结束时间
-    SignId      string          `bson:"sign_id"`    // 对应的sign信息id   
+    SignId      bson.ObjectId   `bson:"sign_id"`    // 对应的sign信息id   
 }
 
 
@@ -84,7 +84,7 @@ func getSignLog(userId string) []SignLog {
     var ols []SignLog
     // find logs
     query := func(c *mgo.Collection) error {
-        return c.Find(bson.M{"user_id": string(base64Encode([]byte(userId))), "logout_time": ""}).All(&ols)
+        return c.Find(bson.M{"user_id": userId, "logout_time": ""}).All(&ols)
     }
     witchCollection("sign", query)
     return ols
@@ -99,7 +99,7 @@ func login(userId string) string {
     id := bson.NewObjectId()
     time := time.Now().Format("2006-01-02 15:04:05")
     fmt.Println(time)
-    ol := SignLog{id, string(base64Encode([]byte(userId))), string(base64Encode([]byte(time))), ""}
+    ol := SignLog{id, userId, time, ""}
     // define 
     query := func(c *mgo.Collection) error {
         return c.Insert(&ol)
@@ -118,7 +118,7 @@ func logout(userId string) int {
         return -1
     }
     // add logout time
-    ols[0].LogoutTime = string(base64Encode([]byte(time.Now().Format("2006-01-02 15:04:05"))))
+    ols[0].LogoutTime = time.Now().Format("2006-01-02 15:04:05")
     query := func(c *mgo.Collection) error {
         return c.Update(bson.M{"logout_time": ""}, &(ols[0]))
     }
@@ -137,7 +137,7 @@ func recordLine(lineNum int, userId string) string {
     }
     id := bson.NewObjectId()
     time := time.Now().Format("2006-01-02 15:04:05")
-    linesLog := LinesLog{id, string(base64Encode([]byte(userId))), string(base64Encode([]byte(string(lineNum)))), string(base64Encode([]byte(time))), string(base64Encode([]byte(ols[0].Id)))}
+    linesLog := LinesLog{id, userId, lineNum, time, ols[0].Id}
     query := func(c *mgo.Collection) error {
         return c.Insert(&linesLog)
     }
@@ -156,7 +156,7 @@ func debug_begin(userId string) string {
     if (len(ols) == 0) {
         return "null"
     }
-    debugLog := DebugLog{id, string(base64Encode([]byte(userId))), string(base64Encode([]byte(time))), "", string(base64Encode([]byte(ols[0].Id)))}
+    debugLog := DebugLog{id, userId, time, "", ols[0].Id}
     query := func(c *mgo.Collection) error {
         return c.Insert(&debugLog)
     }
@@ -171,15 +171,15 @@ func debug_begin(userId string) string {
 func debug_over(userId string) int {
     var debugs []DebugLog
     query := func(c *mgo.Collection) error {
-        return c.Find(bson.M{"user_id": string(base64Encode([]byte(userId))), "e_time": ""}).All(&debugs)       
+        return c.Find(bson.M{"user_id": userId, "e_time": ""}).All(&debugs)       
     }
     err := witchCollection("debug", query)
     if (len(debugs) == 0) {
         return -1
     }
-    debugs[0].EndTime = string(base64Encode([]byte(time.Now().Format("2006-01-02 15:04:05"))))
+    debugs[0].EndTime = time.Now().Format("2006-01-02 15:04:05")
     query = func(c *mgo.Collection) error {
-        return c.Update(bson.M{"user_id": string(base64Encode([]byte(userId))), "e_time": ""}, &debugs[0])    
+        return c.Update(bson.M{"user_id": userId, "e_time": ""}, &debugs[0])    
     }
     err = witchCollection("debug", query)
     if (err != nil) {
@@ -196,7 +196,7 @@ func run_begin(userId string) string {
     if (len(ols) == 0) {
         return "null"
     }
-    runLog := RunLog{id, string(base64Encode([]byte(userId))), string(base64Encode([]byte(time))), "", string(base64Encode([]byte(ols[0].Id)))}
+    runLog := RunLog{id, userId, time, "", ols[0].Id}
     query := func(c *mgo.Collection) error {
         return c.Insert(&runLog)
     }
@@ -211,15 +211,15 @@ func run_begin(userId string) string {
 func run_over(userId string) int {
     var runs []RunLog
     query := func(c *mgo.Collection) error {
-        return c.Find(bson.M{"user_id": string(base64Encode([]byte(userId))), "e_time": ""}).All(&runs)       
+        return c.Find(bson.M{"user_id": userId, "e_time": ""}).All(&runs)       
     }
     err := witchCollection("run", query)
     if (len(runs) == 0) {
         return -1
     }
-    runs[0].EndTime = string(base64Encode([]byte(time.Now().Format("2006-01-02 15:04:05"))))
+    runs[0].EndTime = time.Now().Format("2006-01-02 15:04:05")
     query = func(c *mgo.Collection) error {
-        return c.Update(bson.M{"user_id": string(base64Encode([]byte(userId))), "e_time": ""}, &runs[0])    
+        return c.Update(bson.M{"user_id": userId, "e_time": ""}, &runs[0])    
     }
     err = witchCollection("run", query)
     if (err != nil) {
@@ -259,5 +259,5 @@ func main() {
     //fmt.Println(debug_begin("999"))
     //fmt.Println(debug_over("999"))
     //fmt.Println(run_over("999"))
-    fmt.Println(logout("999"))
+    //fmt.Println(logout("999"))
  }
