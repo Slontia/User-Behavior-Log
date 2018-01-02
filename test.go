@@ -5,6 +5,8 @@ import (
     "gopkg.in/mgo.v2" 
     "gopkg.in/mgo.v2/bson"
     "time"
+    "crypto/md5"
+    "encoding/hex"
 )
 
 const base64Table = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
@@ -19,6 +21,33 @@ func base64Decode(decode_byte []byte) ([]byte, error) {
     return coder.DecodeString(string(decode_byte))
 }
 
+func md5Encode(str string) string {
+    md5Ctx := md5.New()
+    md5Ctx.Write([]byte(str))
+    cipherStr := md5Ctx.Sum(nil)
+    return hex.EncodeToString(cipherStr)
+}
+
+func getSign(dataMap map[string]string, appKey string) string {
+	keySlice := make([]string, len(dataMap))
+	
+	// Sort key
+	i := 0
+	for k, _ := range dataMap {
+		keySlice[i] = k
+		i++
+	}	
+	sort.Strings(keySlice)
+	
+	// create data string
+	dataStr := ""
+	for _, key := range keySlice {
+		dataStr += key + dataMap[key]
+	}
+	dataStr += appKey
+
+	return md5Encode(dataStr)
+}
 
 // 用户登录注销信息
 type SignLog struct {
@@ -93,6 +122,9 @@ func getSignLog(userId string) []SignLog {
 /*===========================
 |            API            |
 ============================*/
+
+// Interface Entry
+
 
 // 用户登录
 func login(userId string) string {
