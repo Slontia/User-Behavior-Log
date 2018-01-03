@@ -324,7 +324,7 @@ func GetSign(request Request) string {
 		value := dataMap[key]
 		dataStr += key + value
 	}
-	dataStr += "timestp" + strconv.FormatUint(timestp, 10) + "api" + string(api)
+	dataStr += "timestp" + strconv.FormatInt(timestp, 10) + "api" + string(api)
 	fmt.Println(dataStr)
 
 	return md5Encode(dataStr)
@@ -332,14 +332,14 @@ func GetSign(request Request) string {
 
 type Request struct {
 	Api			string
-	Timestp		uint64
+	Timestp		int64
 	Sign        string
 	Data		map[string]string
 }
 
 type Request_Send struct {
 	Api			string
-	Timestp		uint64
+	Timestp		int64
 	Sign        string
 	Data		map[string]interface{}
 }
@@ -358,6 +358,16 @@ func entry(reqByte []byte) {
 	sign := GetSign(*request)
 	fmt.Println("Got: " + request.Sign)
 	fmt.Println("Act: " + sign)
+	curTimestp := time.Now().Unix()
+	fmt.Println(curTimestp)
+	if (curTimestp - request.Timestp >= 20) {
+		fmt.Println("Over Time!")
+		return
+	}
+	if (request.Sign != sign) {
+		fmt.Println("Invalid!")
+		return
+	}
 
 	// call interface with reflection
 	var dbapi dbAPI
@@ -368,19 +378,15 @@ func entry(reqByte []byte) {
         fmt.Println(v)
     }
 }
-/*
-type test struct {
-	I int
-	S string
-}
-*/
+
+
 func main() {
 	data := make(map[string]interface{})
 	data["userId"] = "001"
 	data["lineNum"] = "50"
 	r := &Request_Send{
 		"Login", 
-		uint64(1432710115000), 
+		int64(1432710115), 
 		"000", 
 		data}
 
