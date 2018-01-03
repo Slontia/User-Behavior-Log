@@ -1,12 +1,17 @@
 package main
+
 import ( 
     "encoding/base64"
     "fmt"
     "gopkg.in/mgo.v2" 
     "gopkg.in/mgo.v2/bson"
     "time"
+    "sort"
     "crypto/md5"
     "encoding/hex"
+    "encoding/json"
+    "reflect"
+    "strconv"
 )
 
 const base64Table = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
@@ -28,33 +33,12 @@ func md5Encode(str string) string {
     return hex.EncodeToString(cipherStr)
 }
 
-func getSign(dataMap map[string]string, appKey string) string {
-	keySlice := make([]string, len(dataMap))
-	
-	// Sort key
-	i := 0
-	for k, _ := range dataMap {
-		keySlice[i] = k
-		i++
-	}	
-	sort.Strings(keySlice)
-	
-	// create data string
-	dataStr := ""
-	for _, key := range keySlice {
-		dataStr += key + dataMap[key]
-	}
-	dataStr += appKey
-
-	return md5Encode(dataStr)
-}
-
 // 用户登录注销信息
 type SignLog struct {
     Id          bson.ObjectId   `bson:"_id"`            // Id
     UserId      string          `bson:"user_id"`        // 用户id
-    LoginTime   string          `bson:"login_time"`     // 登录时间
-    LogoutTime  string          `bson:"logout_time"`    // 登出时间
+    LoginTime   string          `bson:"Login_time"`     // 登录时间
+    LogoutTime  string          `bson:"Logout_time"`    // 登出时间
 } 
 
 // 代码行数信息
@@ -109,25 +93,48 @@ func witchCollection(collection string, s func(*mgo.Collection) error) error {
     return s(c)
 }
 
-func getSignLog(userId string) []SignLog {
+func GetSignLog(userId string) []SignLog {
     var ols []SignLog
     // find logs
     query := func(c *mgo.Collection) error {
-        return c.Find(bson.M{"user_id": userId, "logout_time": ""}).All(&ols)
+        return c.Find(bson.M{"user_id": userId, "Logout_time": ""}).All(&ols)
     }
     witchCollection("sign", query)
     return ols
+}
+
+func getDebugLog(userId string) []DebugLog {
+	var dbgs []DebugLog
+	query := func(c *mgo.Collection) error {
+		return c.Find(bson.M{"user_id": userId, "e_time": ""}).All(&dbgs)
+	}
+	witchCollection("debug", query)
+	return dbgs
+}
+
+func getRunLog(userId string) []RunLog {
+	var runs []RunLog
+	query := func(c *mgo.Collection) error {
+		return c.Find(bson.M{"user_id": userId, "e_time": ""}).All(&runs)
+	}
+	witchCollection("run", query)
+	return runs
 }
 
 /*===========================
 |            API            |
 ============================*/
 
-// Interface Entry
+type dbAPI struct {} 
 
 
 // 用户登录
-func login(userId string) string {
+func (dbAPI) Login(data map[string]string) string {
+	userId := data["userId"]
+	ols := GetSignLog(userId)
+	if (len(ols) > 0) {
+		return "Logined"
+	}
     id := bson.NewObjectId()
     time := time.Now().Format("2006-01-02 15:04:05")
     fmt.Println(time)
@@ -138,21 +145,22 @@ func login(userId string) string {
     }
     err := witchCollection("sign", query)
     if err != nil {
-        return "null"
+        return "failed"
     }
     return ol.Id.Hex()
 }
 
 // 用户登出
-func logout(userId string) int {
-    ols := getSignLog(userId)
+func (dbAPI) Logout(data map[string]string) int {
+    userId := data["userId"]
+    ols := GetSignLog(userId)
     if (len(ols) == 0) {    // user offline
         return -1
     }
-    // add logout time
+    // add Logout time
     ols[0].LogoutTime = time.Now().Format("2006-01-02 15:04:05")
     query := func(c *mgo.Collection) error {
-        return c.Update(bson.M{"logout_time": ""}, &(ols[0]))
+        return c.Update(bson.M{"Logout_time": ""}, &(ols[0]))
     }
     err := witchCollection("sign", query)  
     if (err != nil) {
@@ -162,10 +170,15 @@ func logout(userId string) int {
 }
 
 // 记录当前代码行数
-func recordLine(lineNum int, userId string) string {
-    ols := getSignLog(userId)
+func (dbAPI) RecordLine(data map[string]string) string {
+    userId := data["userId"]
+    lineNum, err := strconv.Atoi(data["lineNum"])
+    if (err != nil) {
+    	return "type error"
+    }
+    ols := GetSignLog(userId)
     if (len(ols) == 0) {    // user offline
-        return "null"
+        return "offline"
     }
     id := bson.NewObjectId()
     time := time.Now().Format("2006-01-02 15:04:05")
@@ -173,47 +186,49 @@ func recordLine(lineNum int, userId string) string {
     query := func(c *mgo.Collection) error {
         return c.Insert(&linesLog)
     }
-    err := witchCollection("lines", query) 
+    err = witchCollection("lines", query) 
     if (err != nil) {
-        return "null"
+        return "failed"
     }
     return linesLog.Id.Hex()
 }
 
 // debug开始
-func debug_begin(userId string) string {
+func (dbAPI) DebugBegin(data map[string]string) string {
+    userId := data["userId"]
+    ols := GetSignLog(userId)
+    if (len(ols) == 0) {
+        return "offline"
+    }
+    dbgs := getDebugLog(userId)
+    if (len(dbgs) > 0) {
+    	return "debugging"
+    }
     id := bson.NewObjectId()
     time := time.Now().Format("2006-01-02 15:04:05")
-    ols := getSignLog(userId)
-    if (len(ols) == 0) {
-        return "null"
-    }
     debugLog := DebugLog{id, userId, time, "", ols[0].Id}
     query := func(c *mgo.Collection) error {
         return c.Insert(&debugLog)
     }
     err := witchCollection("debug", query)
     if (err != nil) {
-        return "null"
+        return "failed"
     }
     return debugLog.Id.Hex()
 }
 
 // debug结束
-func debug_over(userId string) int {
-    var debugs []DebugLog
-    query := func(c *mgo.Collection) error {
-        return c.Find(bson.M{"user_id": userId, "e_time": ""}).All(&debugs)       
-    }
-    err := witchCollection("debug", query)
+func (dbAPI) DebugOver(data map[string]string) int {
+	userId := data["userId"]
+    debugs := getDebugLog(userId)
     if (len(debugs) == 0) {
         return -1
     }
     debugs[0].EndTime = time.Now().Format("2006-01-02 15:04:05")
-    query = func(c *mgo.Collection) error {
+    query := func(c *mgo.Collection) error {
         return c.Update(bson.M{"user_id": userId, "e_time": ""}, &debugs[0])    
     }
-    err = witchCollection("debug", query)
+    err := witchCollection("debug", query)
     if (err != nil) {
         return -2
     }
@@ -221,13 +236,18 @@ func debug_over(userId string) int {
 }
 
 // 运行开始
-func run_begin(userId string) string {
+func (dbAPI) RunBegin(data map[string]string) string {
+	userId := data["userId"]
+    ols := GetSignLog(userId)
+    if (len(ols) == 0) {
+        return "offline"
+    }
+    runs := getRunLog(userId)
+    if (len(runs) > 0) {
+    	return "running"
+    }
     id := bson.NewObjectId()
     time := time.Now().Format("2006-01-02 15:04:05")
-    ols := getSignLog(userId)
-    if (len(ols) == 0) {
-        return "null"
-    }
     runLog := RunLog{id, userId, time, "", ols[0].Id}
     query := func(c *mgo.Collection) error {
         return c.Insert(&runLog)
@@ -240,22 +260,19 @@ func run_begin(userId string) string {
 }
 
 // 运行结束
-func run_over(userId string) int {
-    var runs []RunLog
-    query := func(c *mgo.Collection) error {
-        return c.Find(bson.M{"user_id": userId, "e_time": ""}).All(&runs)       
-    }
-    err := witchCollection("run", query)
+func (dbAPI) RunOver(data map[string]string) int {
+	userId := data["userId"]
+    runs := getRunLog(userId)
     if (len(runs) == 0) {
-        return -1
+        return -1	// not running
     }
     runs[0].EndTime = time.Now().Format("2006-01-02 15:04:05")
-    query = func(c *mgo.Collection) error {
+    query := func(c *mgo.Collection) error {
         return c.Update(bson.M{"user_id": userId, "e_time": ""}, &runs[0])    
     }
-    err = witchCollection("run", query)
+    err := witchCollection("run", query)
     if (err != nil) {
-        return -2
+        return -2	// failed
     }
     return 0
 }
@@ -282,14 +299,96 @@ func removeAllCol() {
     removeAll("run")
 }
 
+/*===========================
+|          Entry            |
+============================*/
+
+func GetSign(request Request) string {
+	dataMap := request.Data
+	timestp := request.Timestp
+	api := request.Api
+
+	keySlice := make([]string, len(dataMap))
+	
+	// Sort key
+	i := 0
+	for k, _ := range dataMap {
+		keySlice[i] = k
+		i++
+	}
+	sort.Strings(keySlice)
+	
+	dataStr := ""
+	// create data string
+	for _, key := range keySlice {
+		value := dataMap[key]
+		dataStr += key + value
+	}
+	dataStr += "timestp" + strconv.FormatUint(timestp, 10) + "api" + string(api)
+	fmt.Println(dataStr)
+
+	return md5Encode(dataStr)
+}
+
+type Request struct {
+	Api			string
+	Timestp		uint64
+	Sign        string
+	Data		map[string]string
+}
+
+type Request_Send struct {
+	Api			string
+	Timestp		uint64
+	Sign        string
+	Data		map[string]interface{}
+}
+
+// Interface Entry
+func entry(reqByte []byte) {
+	// unmarshal json
+	request := &Request{}
+	err := json.Unmarshal(reqByte, &request)
+	if (err != nil) {
+		fmt.Println("Unmarshal failed!")
+		return
+	}
+
+	// sign check
+	sign := GetSign(*request)
+	fmt.Println("Got: " + request.Sign)
+	fmt.Println("Act: " + sign)
+
+	// call interface with reflection
+	var dbapi dbAPI
+	v := reflect.ValueOf(&dbapi)
+	args := []reflect.Value{ reflect.ValueOf(request.Data) }
+	out := v.MethodByName(request.Api).Call(args)
+    for _, v := range out {
+        fmt.Println(v)
+    }
+}
+/*
+type test struct {
+	I int
+	S string
+}
+*/
 func main() {
+	data := make(map[string]interface{})
+	data["userId"] = "001"
+	data["lineNum"] = "50"
+	r := &Request_Send{
+		"Login", 
+		uint64(1432710115000), 
+		"000", 
+		data}
+
+	jsonByte, err := json.Marshal(r)
+	if (err != nil) {
+		fmt.Println("ERROR!")
+		return
+	}
+	entry(jsonByte)
     //removeAllCol()
-    //fmt.Println("HW")
-    //fmt.Println(login("999"))
-    //fmt.Println(recordLine(10, "999"))
-    //fmt.Println(run_begin("999"))
-    //fmt.Println(debug_begin("999"))
-    //fmt.Println(debug_over("999"))
-    //fmt.Println(run_over("999"))
-    //fmt.Println(logout("999"))
  }
