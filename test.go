@@ -1,15 +1,17 @@
 package main
 
 import ( 
-    "encoding/base64"
-    "fmt"
     "gopkg.in/mgo.v2" 
     "gopkg.in/mgo.v2/bson"
-    "time"
-    "sort"
-    "crypto/md5"
+    "encoding/base64"
     "encoding/hex"
     "encoding/json"
+    "crypto/md5"
+    "net/http"
+    "html/template"
+    "fmt"
+    "time"
+    "sort"
     "reflect"
     "strconv"
 )
@@ -344,6 +346,8 @@ type Request_Send struct {
 	Data		map[string]interface{}
 }
 
+
+
 // Interface Entry
 func entry(reqByte []byte) {
 	// unmarshal json
@@ -362,11 +366,11 @@ func entry(reqByte []byte) {
 	fmt.Println(curTimestp)
 	if (curTimestp - request.Timestp >= 20) {
 		fmt.Println("Over Time!")
-		return
+		//return
 	}
 	if (request.Sign != sign) {
 		fmt.Println("Invalid!")
-		return
+		//return
 	}
 
 	// call interface with reflection
@@ -380,14 +384,69 @@ func entry(reqByte []byte) {
 }
 
 
+func Hello(response http.ResponseWriter, request *http.Request) {
+    type person struct {
+        Id      int
+        Name    string
+        Country string
+    }
+    fmt.Println("Yes")
+
+    liumiaocn := person{Id: 1001, Name: "liumiaocn", Country: "China"}
+
+    tmpl, err := template.ParseFiles("./user.tpl")
+    if err != nil {
+            fmt.Println("Error happened..")
+    }
+    tmpl.Execute(response, liumiaocn)
+}
+
+type BaseJsonBean struct {  
+    Code    int         `json:"code"`  
+    Data    interface{} `json:"data"`  
+    Message string      `json:"message"`  
+}  
+  
+func NewBaseJsonBean() *BaseJsonBean {  
+    return &BaseJsonBean{}  
+}
+
+func AjaxTest(response http.ResponseWriter, req *http.Request) {
+    fmt.Println(999)
+    req.ParseForm()
+    param_api, found1 := req.Form["api"]
+    param_timestp, found2 := req.Form["timestp"]
+    param_sign, found3 := req.Form["sign"]
+    param_data, found4 := req.Form["data"]
+    if !(found1 && found2 && found3 && found4) {
+        fmt.Println("Error")
+        return
+    }
+    result := NewBaseJsonBean()
+    api := param_api[0]
+    timestp := param_timestp[0]
+    sign := param_sign[0]
+    data := param_data[0]
+
+    s := "api: " + api + ", timestp: " + timestp + ", sign: " + sign
+    fmt.Println(s)
+    fmt.Println(data)
+
+    result.Code = 12450
+    result.Message = "屌你老母哦❤" 
+
+    bytes, _ := json.Marshal(result)
+    fmt.Println(string(bytes))
+}
+
 func main() {
-	data := make(map[string]interface{})
+	/*data := make(map[string]interface{})
 	data["userId"] = "001"
 	data["lineNum"] = "50"
 	r := &Request_Send{
-		"Login", 
+		"RecordLine", 
 		int64(1432710115), 
-		"000", 
+		"000",    
 		data}
 
 	jsonByte, err := json.Marshal(r)
@@ -396,5 +455,9 @@ func main() {
 		return
 	}
 	entry(jsonByte)
+    */
+	http.HandleFunc("/", Hello)
+    http.HandleFunc("/ajax", AjaxTest)
+	http.ListenAndServe("127.0.0.1:8080", nil)
     //removeAllCol()
  }
