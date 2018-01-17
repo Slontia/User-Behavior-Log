@@ -7,10 +7,15 @@ import (
     "encoding/hex"
     "encoding/json"
     "crypto/md5"
+    "github.com/gorilla/schema"
+    "io/ioutil"
     "net/http"
     "html/template"
     "fmt"
     "time"
+    "log"
+    //"bytes"
+    //"strings"
     "sort"
     "reflect"
     "strconv"
@@ -333,10 +338,10 @@ func GetSign(request Request) string {
 }
 
 type Request struct {
-	Api			string
-	Timestp		int64
-	Sign        string
-	Data		map[string]string
+	Api			string               `json:"api,omitempty"`
+	Timestp		int64                 `json:"timestp,string,omitempty"`
+	Sign        string                 `json:"sign,omitempty"`
+	Data		map[string]string        `json:"data,string,omitempty"`
 }
 
 type Request_Send struct {
@@ -349,21 +354,35 @@ type Request_Send struct {
 
 
 // Interface Entry
-func entry(reqByte []byte) {
+func entry(response http.ResponseWriter, req *http.Request) {
 	// unmarshal json
 	request := &Request{}
-	err := json.Unmarshal(reqByte, &request)
+    resBody, err := ioutil.ReadAll(req.Body)
+    //reqByte := []byte("")
+    if err != nil {
+        fmt.Println("ReadAll Failed")
+        return
+    }
+    //fmt.Println(string(resBody))
+    //fmt.Println(reflect.TypeOf(resBody).String())
+
+    //reqByte := bytes.NewBuffer(result)
+	err = json.Unmarshal([]byte(resBody), &request)
 	if (err != nil) {
-		fmt.Println("Unmarshal failed!")
+        log.Printf("error decoding sakura response: %v", err)
+        if e, ok := err.(*json.SyntaxError); ok {
+            log.Printf("syntax error at byte offset %d", e.Offset)
+        }
+        log.Printf("sakura response: %q", resBody)
 		return
 	}
-
+    //log.Printf("sakura response: %q", resBody)
 	// sign check
 	sign := GetSign(*request)
 	fmt.Println("Got: " + request.Sign)
 	fmt.Println("Act: " + sign)
 	curTimestp := time.Now().Unix()
-	fmt.Println(curTimestp)
+	//fmt.Println(request.Data)
 	if (curTimestp - request.Timestp >= 20) {
 		fmt.Println("Over Time!")
 		//return
@@ -375,12 +394,17 @@ func entry(reqByte []byte) {
 
 	// call interface with reflection
 	var dbapi dbAPI
+    //fmt.Println(111)
 	v := reflect.ValueOf(&dbapi)
+    //fmt.Println(222)
 	args := []reflect.Value{ reflect.ValueOf(request.Data) }
-	out := v.MethodByName(request.Api).Call(args)
+	//fmt.Println(333)
+    out := v.MethodByName(request.Api).Call(args)
+    //fmt.Println(444)
     for _, v := range out {
         fmt.Println(v)
     }
+    //fmt.Println(555)
 }
 
 
@@ -413,12 +437,27 @@ func NewBaseJsonBean() *BaseJsonBean {
 
 func AjaxTest(response http.ResponseWriter, req *http.Request) {
     fmt.Println(999)
-    req.ParseForm()
+    err := req.ParseForm()
+    if err != nil {
+        fmt.Println("解析失败")
+    }
     param_api, found1 := req.Form["api"]
     param_timestp, found2 := req.Form["timestp"]
     param_sign, found3 := req.Form["sign"]
     param_data, found4 := req.Form["data"]
+    var decoder = schema.NewDecoder()
+    var request Request
+    err = decoder.Decode(&request, req.PostForm)
+    if err != nil {
+        fmt.Println("decode失败")
+        fmt.Println(err)
+    }
+    //param_data := req.FormValue("data")
     if !(found1 && found2 && found3 && found4) {
+        fmt.Println(found1)
+        fmt.Println(found2)
+        fmt.Println(found3)
+        fmt.Println(found4)
         fmt.Println("Error")
         return
     }
@@ -427,10 +466,11 @@ func AjaxTest(response http.ResponseWriter, req *http.Request) {
     timestp := param_timestp[0]
     sign := param_sign[0]
     data := param_data[0]
+    //data := strings.Split(param_data[0], ",")
 
     s := "api: " + api + ", timestp: " + timestp + ", sign: " + sign
-    fmt.Println(s)
-    fmt.Println(data)
+    fmt.Println("info: " + s)
+    fmt.Println("data: ", data)
 
     result.Code = 12450
     result.Message = "屌你老母哦❤" 
@@ -456,8 +496,9 @@ func main() {
 	}
 	entry(jsonByte)
     */
-	http.HandleFunc("/", Hello)
-    http.HandleFunc("/ajax", AjaxTest)
+	http.HandleFunc("/what/", Hello)
+    http.HandleFunc("/ajax/", AjaxTest)
+    http.HandleFunc("/entry/", entry)
 	http.ListenAndServe("127.0.0.1:8080", nil)
     //removeAllCol()
  }

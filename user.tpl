@@ -75,33 +75,42 @@
       </footer>
     </div> <!-- /container -->
 
-    
-    <script src="http://cdn.bootcss.com/jquery/1.10.2/jquery.min.js"></script>  
+    <script src="//cdn.bootcss.com/jquery/1.10.2/jquery.min.js"></script>  
     <script src="//cdn.bootcss.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
   </body>
-  <script type="text/javascript">
+  <script>
     addshanchu()
-    alert("999")
+    //alert(999)
   function addshanchu()
   {
 
     $("#bbb").click(function(){
-    var xhr = new XMLHttpRequest();
+    /*var xhr = new XMLHttpRequest();
     xhr.open('get', '/ajax', true);
-    xhr.send();
-      /*$.ajax({
-        url:"127.0.0.1:8080/ajax/",
-        data:{
-          api: "sss",
-          timestp: "123",
-          sign: "aaa",
-          data: {
-            name: "xiaoming",
-            psw: "fuQ"
-          }
-        },
-        dataType:"TEXT",
-        type:"POST",
+    xhr.send();*/
+    /*var data_dict = new Array()
+    data_dict["name"] = "xiaoming"
+    data_dict["psw"] = "fuQ"
+    */
+    var data_dict = {
+      'name': "xiaoming",
+      'psw': "fuQ"
+    }
+    var ajax_data = {
+      'api': "Login",
+      'timestp': "123",
+      'sign': "aaa",
+      'data': data_dict
+    }
+    alert(ajax_data)
+      $.ajax({
+        //ContentType: 'application/json; charset=utf-8',
+        //dataType: 'text',
+        url: '/entry/',
+        type: 'POST',
+        //data: ajax_data,
+        data: JSON.stringify(ajax_data),
+        //traditional: true,
         success: function(d){
           alert(d.Message)
           if(d.trim()=="OK")
@@ -116,7 +125,7 @@
         error: function(){
           alert("错误")
         }
-      });*/
+      });
     })
   }
   </script>
