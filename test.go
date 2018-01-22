@@ -12,12 +12,12 @@ import (
     "io/ioutil"
     "net/http"
     "html/template"
-    "fmt"
+    //"fmt"
     "time"
     "log"
     //"bytes"
     //"strings"
-    "sort"
+    //"sort"
     //"reflect"
     "strconv"
 )
@@ -82,32 +82,28 @@ func removeAll(colName string) string {
 |          Request           |
 ============================*/
 
-func GetSign(request Request) string {
-	dataMap := request.Data
-	timestp := request.Timestp
-	keySlice := make([]string, len(dataMap))
-	// Sort key
-	i := 0
-	for k, _ := range dataMap {
-		keySlice[i] = k
-		i++
-	}
-	sort.Strings(keySlice)
-	dataStr := ""
-	// create data string
-	for _, key := range keySlice {
-		value := dataMap[key]
-		dataStr += key + value
-	}
-	dataStr += "timestp" + strconv.FormatInt(timestp, 10)
-	fmt.Println(dataStr)
-	return md5Encode(dataStr)
+type Request struct {
+	Timestp		int64     `json:"time,string"`
+	Sign        string    `json:"sign,omitempty"`
+	Action		string    `json:"action,omitempty"`
+	Id			string	  `json:"id,omitempty"`
 }
 
-type Request struct {
-	Timestp		int64                `json:"timestp,string,omitempty"`
-	Sign        string               `json:"sign,omitempty"`
-	Data		map[string]string    `json:"action,string,omitempty"`
+type UserLog struct {
+	Time		int64
+	Action		string   
+	Id			string
+}
+
+func GetSign(request Request) string {
+	id := request.Id
+	action := request.Action
+	timestp := request.Timestp
+	dataStr := "id" + id
+	dataStr += "action" + action
+	dataStr += "time" + strconv.FormatInt(timestp, 10)
+	log.Printf("Discode Sign: " + dataStr)
+	return md5Encode(dataStr)
 }
 
 // Interface Entry
@@ -137,18 +133,19 @@ func entry(res http.ResponseWriter, req *http.Request) {
 		log.Printf("Send Time: %d", request.Timestp)
 		log.Printf("Current Time: %d", curTimestp)
 		io.WriteString(res, "Over Time")
-		return
+		//return
 	}
 	if (request.Sign != sign) {
 		log.Printf("Sign Dismatch!")
 		log.Printf("Got Sign: " + request.Sign)
 		log.Printf("Expected Sign: " + sign)
 		io.WriteString(res, "Sign Dismatch")
-		return
+		//return
 	}
-
+	// write to database
+	ulog := &UserLog{request.Timestp, request.Action, request.Id}
     query := func(c *mgo.Collection) error {
-        return c.Insert(&request.Data)
+        return c.Insert(ulog)
     }
     err = witchCollection(COLLECTION_NAME, query) 
     if (err != nil) {

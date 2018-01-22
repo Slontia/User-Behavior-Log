@@ -19,14 +19,11 @@
     function bindEvent()
     {
       $("#bbb").click(function(){
-        var data_dict = {
-          'wahr': "7777",
-          'psw': "fuU"
-        }
         var ajax_data = {
-          'timestp': "123",
+          'time': "123",
           'sign': "aaa",
-          'action': data_dict
+          'action': "login",
+          'id': "xiaoming"
         }
         $.ajax({
           //ContentType: 'application/json; charset=utf-8',
