@@ -133,14 +133,14 @@ func entry(res http.ResponseWriter, req *http.Request) {
 		log.Printf("Send Time: %d", request.Timestp)
 		log.Printf("Current Time: %d", curTimestp)
 		io.WriteString(res, "Over Time")
-		//return
+		return
 	}
 	if (request.Sign != sign) {
 		log.Printf("Sign Dismatch!")
 		log.Printf("Got Sign: " + request.Sign)
 		log.Printf("Expected Sign: " + sign)
 		io.WriteString(res, "Sign Dismatch")
-		//return
+		return
 	}
 	// write to database
 	ulog := &UserLog{request.Timestp, request.Action, request.Id}
