@@ -9,16 +9,32 @@
   </head>
 
   <body>
-    <p><a class="btn btn-primary btn-lg" href="#" role="button" id="bbb">Send &raquo;</a></p>
+    <p><a class="btn btn-primary btn-lg" href="#" role="button" id="sendbtn">Send &raquo;</a></p>
+    <p id="datatxt"></p>
 
     <script src="//cdn.bootcss.com/jquery/1.10.2/jquery.min.js"></script>  
     <script src="//cdn.bootcss.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
   </body>
   <script>
     bindEvent()
+
+    function readData()
+    {
+      $.ajax({
+        url: '/show/',
+        type: 'POST',
+        success: function(d) {
+          $("#datatxt").innerText = d;
+        },
+        error: function(d) {
+          alert("Lost Connection");
+        }
+      })
+    }
+
     function bindEvent()
     {
-      $("#bbb").click(function(){
+      $("#sendbtn").click(function(){
         var ajax_data = {
           'time': "123",
           'sign': "aaa",
@@ -26,12 +42,9 @@
           'id': "xiaoming"
         }
         $.ajax({
-          //ContentType: 'application/json; charset=utf-8',
-          //dataType: 'text',
           url: '/entry/',
           type: 'POST',
           data: JSON.stringify(ajax_data),
-          //traditional: true,
           success: function(d){
             if (d === "")
             {
@@ -39,11 +52,11 @@
             }
             else
             {
-              alert(d)
+              alert(d);
             }
           },
           error: function(){
-            alert("Lost Connection")
+            alert("Lost Connection");
           }
         });
       })

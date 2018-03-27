@@ -2,7 +2,7 @@ package main
 
 import ( 
     "gopkg.in/mgo.v2" 
-    //"gopkg.in/mgo.v2/bson"
+    "gopkg.in/mgo.v2/bson"
     //"encoding/base64"
     "encoding/hex"
     "encoding/json"
@@ -155,6 +155,19 @@ func entry(res http.ResponseWriter, req *http.Request) {
     log.Printf("Success!")
 }
 
+func findAll(res http.ResponseWriter, req *http.Request) {
+    var logs []UserLog
+    query := func(c *mgo.Collection) error {
+        return c.Find(bson.M{}).All(&logs)
+    }
+    err := witchCollection(COLLECTION_NAME, query)
+    if (err != nil) {
+        io.WriteString(res, "Cannot Read Database")
+        return
+    }
+    res.Write([]byte(logs))
+}
+
 // load template
 func index(response http.ResponseWriter, request *http.Request) {
     tmpl, err := template.ParseFiles(TEMPLATE_PATH)
@@ -168,5 +181,6 @@ func index(response http.ResponseWriter, request *http.Request) {
 func main() {
 	http.HandleFunc("/index/", index)
     http.HandleFunc("/entry/", entry)
+    http.HandleFunc("/show/", findAll)
 	http.ListenAndServe(FRONT_ADDR, nil)
  }
