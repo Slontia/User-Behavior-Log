@@ -9,28 +9,26 @@
   </head>
 
   <body>
-    <p><a class="btn btn-primary btn-lg" href="#" role="button" id="sendbtn">Send &raquo;</a></p>
-    <p id="datatxt"></p>
+    <p>全部数据：</p>
+    <p id="datatxt"></p>  
 
     <script src="//cdn.bootcss.com/jquery/1.10.2/jquery.min.js"></script>  
     <script src="//cdn.bootcss.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
   </body>
   <script>
-    bindEvent()
-
-    function readData()
-    {
-      $.ajax({
-        url: '/show/',
-        type: 'POST',
-        success: function(d) {
-          $("#datatxt").innerText = d;
-        },
-        error: function(d) {
-          alert("Lost Connection");
-        }
-      })
-    }
+    // function readData()
+    // {
+    //   $.ajax({
+    //     url: '/show/',
+    //     type: 'GET',
+    //     success: function(d) {
+    //       document.getElementById("datatxt").innerText = d;
+    //     },
+    //     error: function(d) {
+    //       alert("Lost Connection");
+    //     }
+    //   })
+    // }
 
     function bindEvent()
     {

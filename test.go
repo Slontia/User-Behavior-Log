@@ -129,10 +129,10 @@ func entry(res http.ResponseWriter, req *http.Request) {
 	sign := GetSign(*request)
 	curTimestp := time.Now().Unix()
 	if (curTimestp - request.Timestp >= 20) {
-		log.Printf("Over Time!")
+		log.Printf("Overdue Request!")
 		log.Printf("Send Time: %d", request.Timestp)
 		log.Printf("Current Time: %d", curTimestp)
-		io.WriteString(res, "Over Time")
+		io.WriteString(res, "Overdue Request")
 		return
 	}
 	if (request.Sign != sign) {
@@ -165,7 +165,12 @@ func findAll(res http.ResponseWriter, req *http.Request) {
         io.WriteString(res, "Cannot Read Database")
         return
     }
-    res.Write([]byte(logs))
+    jsons, errs := json.Marshal(logs)
+    if errs != nil {  
+      log.Println(errs.Error())  
+    }
+    log.Printf(string(jsons))
+    res.Write(jsons)
 }
 
 // load template
